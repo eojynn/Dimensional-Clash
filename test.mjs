@@ -92,3 +92,37 @@ test('turn dial starts at ten, moves and rotates for everyone, and stays set aft
   await request('leave', second, {});
   await request('leave', first, {});
 });
+
+test('reset shuffles the shared table and rejects actions from the previous round', async () => {
+  const first = (await request('login', null, {name: '초기화 1'})).body.token;
+  const second = (await request('login', null, {name: '초기화 2'})).body.token;
+  const {id} = (await request('create', first, {name: '초기화 테스트'})).body;
+  await request('join', second, {id});
+  const read = async token => (await request('events', token)).body;
+  const initial = await read(first);
+  const {round, cards} = initial;
+  const card = {id: cards[0].id, round};
+  await request('grab', first, card);
+  await request('move', first, {...card, x: 540, y: 250, a: 90, release: true});
+  await request('flip', first, card);
+  await request('rulebook', first, {action: 'grab', round});
+  await request('rulebook', first, {action: 'move', round, x: 430, y: 330});
+  await request('rulebook', first, {action: 'open', round});
+  await request('turn-dial', second, {action: 'grab', round});
+  await request('turn-dial', second, {action: 'open', round});
+  await request('turn-dial', second, {action: 'rotate', round, turn: 7});
+  assert.equal((await request('reset', second, {})).status, 200);
+  const reset = await read(first);
+  assert.equal(reset.round, round + 1);
+  assert.equal(reset.players.length, 2);
+  assert.equal(reset.cards.length, 120);
+  assert.notDeepEqual(reset.cards.map(c => c.id), cards.map(c => c.id));
+  assert(reset.cards.every(c => c.x === playWidth / 2 && c.y === playHeight / 2 && c.a === 0 && !c.front && !c.lock));
+  assert.deepEqual(reset.rulebook, initial.rulebook);
+  assert.deepEqual(reset.turnDial, initial.turnDial);
+  assert.deepEqual((await read(second)).cards, reset.cards);
+  assert.equal((await request('grab', first, card)).status, 409);
+  assert.equal((await request('rulebook', first, {action: 'grab', round})).status, 409);
+  await request('leave', second, {});
+  await request('leave', first, {});
+});

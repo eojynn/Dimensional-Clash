@@ -58,14 +58,16 @@ function mountPiece({ board, point, api, toast, canGrab }, { cover, kind, width,
   cover.disabled = true;
   cover.style.visibility = 'hidden';
   board.append(cover);
-  let current, me, gesture, finishing = false, disposed = false;
+  let current, me, round, gesture, finishing = false, disposed = false;
   function place({ x, y }) {
     cover.style.left = x + 'px';
     cover.style.top = y + 'px';
   }
 
-  function update(book, player) {
+  function update(book, player, tableRound) {
     if (!book) return;
+    if (round !== tableRound) end(false);
+    round = tableRound;
     current = book;
     me = player;
     if (gesture && book.holder === me) gesture.observed = true;
@@ -76,8 +78,8 @@ function mountPiece({ board, point, api, toast, canGrab }, { cover, kind, width,
     paint(gesture?.turn === undefined ? book : { ...book, turn: gesture.turn });
   }
 
-  function send(action, position = {}) {
-    return api(kind, { action, ...position });
+  function send(action, gestureRound, position = {}) {
+    return api(kind, { action, round: gestureRound, ...position });
   }
 
   function report(error) {
@@ -97,7 +99,7 @@ function mountPiece({ board, point, api, toast, canGrab }, { cover, kind, width,
     finishing = true;
     // Wait for the current request so release always closes the same grab.
     held.request.then(() => {
-      if (held.acknowledged) return send('release', values);
+      if (held.acknowledged) return send('release', held.round, values);
     }).catch(report).finally(() => { finishing = false; });
   }
 
@@ -107,7 +109,7 @@ function mountPiece({ board, point, api, toast, canGrab }, { cover, kind, width,
     event.stopPropagation();
     const origin = point(event);
     const held = {
-      pointerId: event.pointerId, origin, position: { x: current.x, y: current.y },
+      pointerId: event.pointerId, round, origin, position: { x: current.x, y: current.y },
       offsetX: current.x - origin.x, offsetY: current.y - origin.y,
     };
     gesture = held;
@@ -116,7 +118,7 @@ function mountPiece({ board, point, api, toast, canGrab }, { cover, kind, width,
     function command(action, position) {
       if (!held.acknowledged || held.busy) return;
       held.busy = true;
-      held.request = send(action, position).catch(error => {
+      held.request = send(action, held.round, position).catch(error => {
         if (gesture === held) end();
         report(error);
       }).finally(() => {
@@ -133,7 +135,7 @@ function mountPiece({ board, point, api, toast, canGrab }, { cover, kind, width,
       held.opening = true;
       command('open');
     };
-    held.request = send('grab').then(() => {
+    held.request = send('grab', held.round).then(() => {
       held.acknowledged = true;
       if (gesture === held) {
         held.keep = setInterval(() => command('keep'), 1800);
