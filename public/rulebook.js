@@ -1,18 +1,15 @@
-import { playWidth, playHeight } from './table-layout.js';
+import { playWidth, playHeight, turnDialSize, maxTurns } from './table-layout.js';
 
 const holdDelay = 450;
 const dragThreshold = 7;
 
-export function mountRulebook({ board, container, point, api, toast, canGrab }) {
+export function mountRulebook(options) {
+  const { container } = options;
   const cover = document.createElement('button');
   cover.type = 'button';
   cover.className = 'rulebook-cover';
   cover.textContent = '룰북';
   cover.title = '드래그로 이동 · 길게 눌러 펼치기';
-  cover.disabled = true;
-  cover.style.visibility = 'hidden';
-  board.append(cover);
-
   const preview = document.createElement('div');
   preview.className = 'rulebook-preview';
   preview.setAttribute('aria-hidden', 'true');
@@ -22,6 +19,45 @@ export function mountRulebook({ board, container, point, api, toast, canGrab }) 
   preview.append(page);
   container.append(preview);
 
+  return mountPiece(options, {
+    cover, kind: 'rulebook', width: 96, height: 64,
+    paint(book) {
+      cover.classList.toggle('is-open', book.open);
+      cover.setAttribute('aria-expanded', String(book.open));
+      preview.classList.toggle('is-open', book.open);
+      preview.setAttribute('aria-hidden', String(!book.open));
+    },
+  });
+}
+
+export function mountTurnDial(options) {
+  const cover = document.createElement('button');
+  cover.type = 'button';
+  cover.className = 'turn-dial';
+  cover.title = '드래그로 이동 · 길게 누른 채 휠로 돌리기';
+  cover.style.setProperty('--dial-size', turnDialSize + 'px');
+  const art = new Image();
+  art.src = '/turn-dial.png';
+  art.alt = '';
+  const arrow = document.createElement('span');
+  arrow.className = 'turn-dial-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  cover.append(art, arrow);
+
+  return mountPiece(options, {
+    cover, kind: 'turn-dial', width: turnDialSize, height: turnDialSize, wheel: true,
+    paint(dial) {
+      arrow.style.rotate = ((maxTurns - dial.turn) * 360 / (maxTurns + 1)) + 'deg';
+      cover.classList.toggle('is-adjusting', dial.open);
+      cover.setAttribute('aria-label', `남은 턴 돌림판 · ${dial.turn}턴`);
+    },
+  });
+}
+
+function mountPiece({ board, point, api, toast, canGrab }, { cover, kind, width, height, wheel, paint }) {
+  cover.disabled = true;
+  cover.style.visibility = 'hidden';
+  board.append(cover);
   let current, me, gesture, finishing = false, disposed = false;
   function place({ x, y }) {
     cover.style.left = x + 'px';
@@ -37,14 +73,11 @@ export function mountRulebook({ board, container, point, api, toast, canGrab }) 
     if (!gesture?.moved) place(book);
     cover.style.visibility = 'visible';
     cover.disabled = !!book.holder && book.holder !== me;
-    cover.classList.toggle('is-open', book.open);
-    cover.setAttribute('aria-expanded', String(book.open));
-    preview.classList.toggle('is-open', book.open);
-    preview.setAttribute('aria-hidden', String(!book.open));
+    paint(gesture?.turn === undefined ? book : { ...book, turn: gesture.turn });
   }
 
   function send(action, position = {}) {
-    return api('rulebook', { action, ...position });
+    return api(kind, { action, ...position });
   }
 
   function report(error) {
@@ -59,11 +92,12 @@ export function mountRulebook({ board, container, point, api, toast, canGrab }) 
     clearInterval(held.keep);
     if (cover.hasPointerCapture(held.pointerId)) cover.releasePointerCapture(held.pointerId);
     const position = held.moved ? held.position : {};
+    const values = held.turn === undefined ? position : { ...position, turn: held.turn };
     if (!release) return;
     finishing = true;
     // Wait for the current request so release always closes the same grab.
     held.request.then(() => {
-      if (held.acknowledged) return send('release', position);
+      if (held.acknowledged) return send('release', values);
     }).catch(report).finally(() => { finishing = false; });
   }
 
@@ -85,7 +119,13 @@ export function mountRulebook({ board, container, point, api, toast, canGrab }) 
       held.request = send(action, position).catch(error => {
         if (gesture === held) end();
         report(error);
-      }).finally(() => { held.busy = false; });
+      }).finally(() => {
+        held.busy = false;
+        if (gesture === held && held.pendingTurn) {
+          held.pendingTurn = false;
+          command('rotate', { turn: held.turn });
+        }
+      });
     }
     held.command = command;
     const open = () => {
@@ -117,8 +157,8 @@ export function mountRulebook({ board, container, point, api, toast, canGrab }) 
     if (!held.moved && Math.hypot(cursor.x - held.origin.x, cursor.y - held.origin.y) < dragThreshold) return;
     held.moved = true;
     held.position = {
-      x: Math.max(48, Math.min(playWidth - 48, cursor.x + held.offsetX)),
-      y: Math.max(32, Math.min(playHeight - 32, cursor.y + held.offsetY)),
+      x: Math.max(width / 2, Math.min(playWidth - width / 2, cursor.x + held.offsetX)),
+      y: Math.max(height / 2, Math.min(playHeight - height / 2, cursor.y + held.offsetY)),
     };
     place(held.position);
     held.command('move', held.position);
@@ -127,6 +167,23 @@ export function mountRulebook({ board, container, point, api, toast, canGrab }) 
   cover.onpointerup = cover.onpointercancel = cover.onlostpointercapture = event => {
     if (gesture?.pointerId === event.pointerId) end();
   };
+  function rotate(event) {
+    const held = gesture;
+    if (!held || !held.opening || !current.open || !event.deltaY) return;
+    event.preventDefault();
+    const now = performance.now();
+    if (held.lastWheel !== undefined && now - held.lastWheel < 100) return;
+    held.lastWheel = now;
+    const before = held.turn ?? current.turn;
+    const turn = Math.max(0, Math.min(maxTurns, before - Math.sign(event.deltaY)));
+    if (turn === before) return;
+    held.turn = turn;
+    paint({ ...current, turn });
+    if (held.busy) held.pendingTurn = true;
+    else held.command('rotate', { turn });
+  }
+  if (wheel) board.addEventListener('wheel', rotate, { passive: false });
+
   const blur = () => end();
   window.addEventListener('blur', blur);
 
@@ -137,6 +194,7 @@ export function mountRulebook({ board, container, point, api, toast, canGrab }) 
       disposed = true;
       end();
       window.removeEventListener('blur', blur);
+      if (wheel) board.removeEventListener('wheel', rotate);
     },
   };
 }

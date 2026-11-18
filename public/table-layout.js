@@ -5,6 +5,8 @@ export const playWidth = boardWidth - 2 * boardBorder;
 export const playHeight = boardHeight - 2 * boardBorder;
 export const cardWidth = 108;
 export const cardHeight = 150;
+export const turnDialSize = 148;
+export const maxTurns = 10;
 
 const originalZones = [
   { x: 260, y: 30, w: 260, h: 150 },

@@ -68,3 +68,27 @@ test('players share a folded rulebook, its movement, and its open state', async 
   assert.deepEqual(await read(first), {x: 430, y: 330, open: false, holder: null});
   await request('leave', first, {});
 });
+
+test('turn dial starts at ten, moves and rotates for everyone, and stays set after release', async () => {
+  const first = (await request('login', null, {name: '돌림판 1'})).body.token;
+  const second = (await request('login', null, {name: '돌림판 2'})).body.token;
+  const { id } = (await request('create', first, {name: '돌림판 테스트'})).body;
+  await request('join', second, {id});
+  const read = async token => (await request('events', token)).body.turnDial;
+  const action = (token, command, data) => request('turn-dial', token, {action: command, ...data});
+  assert.deepEqual(await read(first), await read(second));
+  assert.equal((await read(first)).turn, 10);
+  assert.equal((await action(first, 'grab')).status, 200);
+  assert.equal((await action(first, 'rotate', {turn: 9})).status, 409);
+  assert.equal((await action(first, 'move', {x: 700, y: 340})).status, 200);
+  assert.equal((await read(second)).x, 700);
+  assert.equal((await action(first, 'open')).status, 200);
+  assert.equal((await action(second, 'rotate', {turn: 8})).status, 409);
+  assert.equal((await action(first, 'rotate', {turn: -1})).status, 400);
+  assert.equal((await action(first, 'rotate', {turn: 9})).status, 200);
+  assert.equal((await read(second)).turn, 9);
+  assert.equal((await action(first, 'release', {turn: 8})).status, 200);
+  assert.deepEqual(await read(second), {x: 700, y: 340, open: false, holder: null, turn: 8});
+  await request('leave', second, {});
+  await request('leave', first, {});
+});

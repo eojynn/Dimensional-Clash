@@ -60,3 +60,60 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
 @media (prefers-reduced-motion: reduce) {
   .rulebook-preview, .rulebook-preview img { transition: none; }
 }
+
+.turn-dial {
+  position: absolute;
+  z-index: 50000;
+  width: var(--dial-size);
+  height: var(--dial-size);
+  padding: 0;
+  translate: -50% -50%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #221233;
+  box-shadow: 0 5px 14px #10091baa;
+  touch-action: none;
+  cursor: grab;
+}
+.turn-dial:hover { transform: none; }
+.turn-dial:disabled { opacity: 1; cursor: not-allowed; }
+.turn-dial.is-adjusting { outline: 2px solid #94f5c4; outline-offset: 3px; }
+.turn-dial img {
+  position: absolute;
+  top: -3.3%;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+}
+.turn-dial-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 23%;
+  height: 84%;
+  translate: -50% -50%;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px #10091b);
+  transition: rotate .16s ease-out;
+}
+.turn-dial-arrow::before {
+  content: '';
+  position: absolute;
+  inset: 0 12% 50%;
+  background: #fff0ad;
+  clip-path: polygon(50% 0, 100% 31%, 66% 27%, 63% 100%, 37% 100%, 34% 27%, 0 31%);
+}
+.turn-dial-arrow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #fff0ad;
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-dial-arrow { transition: none; }
+}
