@@ -1,0 +1,16 @@
+{
+  "name": "dimension-collision",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test --test-isolation=none test.mjs",
+    "dev": "node server.mjs",
+    "build": "node scripts/build-card-resources.mjs",
+    "prestart": "node scripts/build-card-resources.mjs"
+  },
+  "engines": {
+    "node": ">=22.8"
+  }
+}
