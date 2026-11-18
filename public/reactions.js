@@ -33,36 +33,24 @@ export function mountReactions(game, api, toast) {
     }
   };
 
-  function show({ id, kind, name }) {
+  function show({ kind, name }) {
     if (!Object.hasOwn(reactions, kind)) return;
-    const { icon } = reactions[kind];
-    const effect = document.createElement('div');
-    effect.className = 'table-reaction reaction-' + kind;
-    effect.style.setProperty('--lane', ((id % 3) - 1) * 72 + 'px');
-    const symbol = document.createElement('span');
-    symbol.className = 'reaction-symbol';
-    symbol.textContent = icon;
-    const label = document.createElement('span');
-    label.className = 'reaction-name';
-    label.textContent = name;
-    effect.append(symbol, label);
-
+    const effect = element('div', 'table-reaction reaction-' + kind);
     if (kind === 'tomato') {
       const tray = picker.getBoundingClientRect();
       const field = stage.getBoundingClientRect();
-      effect.style.setProperty('--throw-x', (tray.left + tray.width / 2 - field.left - field.width / 2) + 'px');
-      effect.style.setProperty('--throw-y', (tray.top + tray.height / 2 - field.top - field.height / 2) + 'px');
+      const origin = {
+        '--throw-x': (tray.left + tray.width / 2 - field.left - field.width / 2) + 'px',
+        '--throw-y': (tray.top + tray.height / 2 - field.top - field.height / 2) + 'px',
+      };
+      addTomato(effect, origin);
+    } else if (kind === 'fireworks') {
+      addFireworks(effect);
+    } else {
+      addFloatingIcons(effect, reactions[kind].icon);
     }
-    if (kind === 'tomato' || kind === 'fireworks') {
-      for (let index = 0; index < 8; index++) {
-        const spark = document.createElement('i');
-        spark.className = 'reaction-particle';
-        spark.style.setProperty('--direction', index * 45 + 'deg');
-        spark.style.setProperty('--particle-color', kind === 'tomato' ? '#ff594b' :
-          ['#ffc96c', '#a7f7cf', '#ed93e4', '#a4b8ff'][index % 4]);
-        effect.append(spark);
-      }
-    }
+
+    effect.append(element('span', 'reaction-name', {}, name));
     effect.addEventListener('animationend', event => {
       if (event.target === effect) effect.remove();
     });
@@ -76,4 +64,58 @@ export function mountReactions(game, api, toast) {
       show(event);
     }
   };
+}
+
+function element(tag, className, style = {}, content = '') {
+  const node = document.createElement(tag);
+  node.className = className;
+  node.textContent = content;
+  for (const [property, value] of Object.entries(style)) node.style.setProperty(property, value);
+  return node;
+}
+
+function addFloatingIcons(effect, icon) {
+  const columns = [-2, 1, -1, 2, 0, -3, 3, 0];
+  columns.forEach((column, index) => effect.append(element('span', 'reaction-float', {
+    '--drift': column * 28 + 'px',
+    '--rise': -115 - (index % 4) * 28 + 'px',
+    '--tilt': column * 7 + 'deg',
+    '--delay': index * 55 + 'ms',
+    '--size': 37 + (index % 3) * 11 + 'px',
+  }, icon)));
+}
+
+function addTomato(effect, origin) {
+  effect.append(element('span', 'tomato-projectile', origin, reactions.tomato.icon));
+  effect.append(element('i', 'tomato-splat'));
+  for (let index = 0; index < 16; index++) {
+    effect.append(element('i', 'tomato-drop', {
+      '--direction': index * 22.5 + 'deg',
+      '--distance': 49 + (index * 37 % 81) + 'px',
+      '--size': 5 + (index * 7 % 18) + 'px',
+      '--delay': 420 + (index % 4) * 20 + 'ms',
+    }));
+  }
+}
+
+function addFireworks(effect) {
+  const palettes = [['#ffcd62', '#fff2ba', '#ff8d51'], ['#8af6ec', '#c0b5ff', '#f7a2df']];
+  for (const [index, colors] of palettes.entries()) {
+    const burst = element('div', 'firework', {
+      '--x': index === 0 ? '-51px' : '62px',
+      '--y': index === 0 ? '-25px' : '-88px',
+      '--launch-delay': index * 170 + 'ms',
+      '--burst-delay': 450 + index * 170 + 'ms',
+      '--flash': colors[0],
+    });
+    burst.append(element('i', 'firework-rocket'), element('i', 'firework-flash'));
+    for (let spark = 0; spark < 24; spark++) {
+      burst.append(element('i', 'firework-spark', {
+        '--direction': spark * 15 + index * 8 + 'deg',
+        '--distance': 48 + (spark * 29 % 62) + 'px',
+        '--spark': colors[spark % colors.length],
+      }));
+    }
+    effect.append(burst);
+  }
 }

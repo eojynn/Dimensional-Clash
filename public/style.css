@@ -166,27 +166,23 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
 .reaction-picker button:focus-visible { background: #644882; }
 .reaction-stage {
   position: absolute;
-  inset: 16% 0 54px;
+  inset: 0;
   z-index: 29;
   overflow: hidden;
   pointer-events: none;
 }
 .table-reaction {
   position: absolute;
-  left: calc(50% + var(--lane));
+  left: 50%;
   top: 50%;
-  display: grid;
-  justify-items: center;
-  translate: -50% -50%;
-  animation: reaction-life 1.5s both;
-}
-.reaction-symbol {
-  font-size: clamp(54px, 12vw, 112px);
-  line-height: 1;
-  filter: drop-shadow(0 4px 10px #160a25b3);
-  animation: reaction-pop .52s ease-out both;
+  animation: reaction-life 1.85s both;
 }
 .reaction-name {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  translate: -50%;
+  z-index: 1;
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -197,44 +193,128 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
   color: #fff;
   font-size: 12px;
 }
-.reaction-tomato .reaction-symbol { animation: reaction-throw .92s cubic-bezier(.19,.65,.3,1) both; }
-.reaction-particle {
+.reaction-tomato .reaction-name,
+.reaction-fireworks .reaction-name { top: 70px; }
+.reaction-float,
+.tomato-projectile,
+.tomato-splat,
+.tomato-drop,
+.firework-rocket,
+.firework-flash,
+.firework-spark {
   position: absolute;
-  top: 40%;
-  left: 50%;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--particle-color);
-  pointer-events: none;
-  animation: reaction-burst .72s .12s ease-out both;
+  left: 0;
+  top: 0;
+  translate: -50% -50%;
 }
-.reaction-tomato .reaction-particle { animation-delay: .47s; }
+.reaction-float {
+  font-size: var(--size);
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px #160a2599);
+  animation: reaction-float 1.38s var(--delay) cubic-bezier(.15,.65,.35,1) both;
+}
+.tomato-projectile {
+  font-size: 54px;
+  line-height: 1;
+  animation: tomato-flight .46s ease-out both;
+}
+.tomato-splat {
+  width: 155px;
+  height: 112px;
+  background: radial-gradient(ellipse at 42% 40%, #ff6756, #e12431 51%, #ad1225);
+  clip-path: polygon(2% 36%, 26% 37%, 18% 11%, 38% 29%, 48% 2%, 53% 32%,
+    76% 8%, 69% 36%, 97% 28%, 79% 47%, 100% 57%, 72% 61%, 83% 88%, 59% 74%,
+    49% 99%, 43% 74%, 20% 93%, 30% 67%, 2% 74%, 20% 55%, 0 49%, 23% 46%);
+  animation: tomato-splat .85s .43s ease-out both;
+}
+.tomato-drop {
+  width: var(--size);
+  height: calc(var(--size) * .62);
+  border-radius: 63% 46% 61% 38%;
+  background: #ee3543;
+  animation: tomato-drop .82s var(--delay) ease-out both;
+}
+.tomato-drop:nth-of-type(3n) { background: #ff7659; }
+.firework {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+}
+.firework-rocket {
+  width: 5px;
+  height: 57px;
+  border-radius: 40%;
+  background: linear-gradient(#fff, var(--flash) 16%, transparent);
+  filter: drop-shadow(0 0 7px var(--flash));
+  animation: firework-rocket .45s var(--launch-delay) ease-out both;
+}
+.firework-flash {
+  width: 66px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 4%, var(--flash) 18%, transparent 67%);
+  animation: firework-flash .36s var(--burst-delay) ease-out both;
+}
+.firework-spark {
+  width: 20px;
+  height: 3px;
+  border-radius: 40%;
+  background: linear-gradient(90deg, transparent, var(--spark) 60%, #fff);
+  filter: drop-shadow(0 0 4px var(--spark));
+  animation: firework-spark .94s var(--burst-delay) cubic-bezier(.13,.7,.32,1) both;
+}
 @keyframes reaction-life {
-  0%, 75% { opacity: 1; }
+  0%, 78% { opacity: 1; }
   100% { opacity: 0; }
 }
-@keyframes reaction-pop {
-  0% { transform: scale(.2) rotate(-12deg); opacity: 0; }
-  65% { transform: scale(1.24) rotate(5deg); }
-  100% { transform: none; opacity: 1; }
+@keyframes reaction-float {
+  0% { opacity: 0; transform: scale(.3); }
+  18% { opacity: 1; }
+  62% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--drift), var(--rise)) rotate(var(--tilt)) scale(.9); }
 }
-@keyframes reaction-throw {
-  0% { transform: translate(var(--throw-x), var(--throw-y)) rotate(70deg) scale(.26); }
-  48% { transform: translateY(-34px) rotate(-16deg) scale(.85); }
-  65% { transform: scale(1.28,.7); }
-  100% { transform: none; }
+@keyframes tomato-flight {
+  0% { transform: translate(var(--throw-x), var(--throw-y)) rotate(100deg) scale(.4); }
+  86% { transform: none; opacity: 1; }
+  100% { transform: scale(1.5,.4); opacity: 0; }
 }
-@keyframes reaction-burst {
-  0% { transform: rotate(var(--direction)) translateX(6px) scale(.3); opacity: 0; }
+@keyframes tomato-splat {
+  0% { transform: scale(.14,.1); opacity: 0; }
+  25% { transform: scale(1.04,.93) rotate(-10deg); opacity: .96; }
+  67% { opacity: .92; }
+  100% { transform: scale(1.27,1.2) rotate(-10deg); opacity: 0; }
+}
+@keyframes tomato-drop {
+  0% { transform: rotate(var(--direction)) translateX(9px) scale(.1); opacity: 0; }
   25% { opacity: 1; }
-  100% { transform: rotate(var(--direction)) translateX(96px) scale(.2); opacity: 0; }
+  67% { opacity: .96; }
+  100% { transform: rotate(var(--direction)) translateX(var(--distance)) scale(.65); opacity: 0; }
+}
+@keyframes firework-rocket {
+  0% { transform: translateY(230px) scale(.7); opacity: 0; }
+  15% { opacity: 1; }
+  87% { opacity: 1; }
+  100% { transform: none; opacity: 0; }
+}
+@keyframes firework-flash {
+  0% { opacity: 0; transform: scale(.18); }
+  14% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+@keyframes firework-spark {
+  0% { transform: rotate(var(--direction)) translateX(4px) scale(.18); opacity: 0; }
+  16% { opacity: 1; }
+  57% { opacity: .94; }
+  100% { transform: translateY(24px) rotate(var(--direction)) translateX(var(--distance)) scale(.25); opacity: 0; }
 }
 @media (max-width: 500px) {
   .reaction-picker { right: 8px; bottom: 62px; }
   .reaction-picker button { width: 36px; height: 36px; font-size: 21px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .table-reaction .reaction-symbol { animation: none; }
-  .reaction-particle { display: none; }
+  .tomato-projectile, .firework-rocket { display: none; }
+  .reaction-float { animation: none; transform: translate(var(--drift), calc(var(--rise) / 3)); }
+  .tomato-splat, .tomato-drop, .firework-flash, .firework-spark { animation: none; }
+  .tomato-drop { transform: rotate(var(--direction)) translateX(var(--distance)); }
+  .firework-spark { transform: rotate(var(--direction)) translateX(var(--distance)); }
 }
