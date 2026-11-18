@@ -117,3 +117,14 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
 @media (prefers-reduced-motion: reduce) {
   .turn-dial-arrow { transition: none; }
 }
+
+.hand-count {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.card.hand-preview {
+  pointer-events: none;
+  box-shadow: 0 12px 28px #10061fbb;
+  outline: 2px solid var(--accent);
+}

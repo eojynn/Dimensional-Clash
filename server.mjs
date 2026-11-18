@@ -1,4 +1,4 @@
-import { playWidth, playHeight, cardWidth, cardHeight, turnDialSize, maxTurns, zones } from './public/table-layout.js';
+import { playWidth, playHeight, cardWidth, cardHeight, turnDialSize, maxTurns, zones, seatAt } from './public/table-layout.js';
 import http from 'node:http';
 import {randomUUID,randomInt} from 'node:crypto';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -10,14 +10,48 @@ try{resources=JSON.parse(await readFile(root+'cards/resources.json','utf8'))}cat
 try{resources=JSON.parse(await readFile(root+'data/resources.json','utf8'))}catch{}
 const rooms=new Map(),users=new Map();
 const colors=['#eea64c','#65b8eb','#ac91f2','#ed829e','#69c8a0','#dfd266'];
-export function zone(x,y){return zones.findIndex(z=>x>=z.x&&x<=z.x+z.w&&y>=z.y&&y<=z.y+z.h)}
+export { seatAt as zone };
+const zone = seatAt;
 export function makeCards(){return Array.from({length:120},(_,id)=>({id,x:playWidth/2,y:playHeight/2,a:0,face:false,z:Math.random(),lock:null,until:0})).sort((a,b)=>a.z-b.z).map((c,z)=>({...c,z}))}
+function arrangeHand(room, seat) {
+  if (seat < 0) return;
+  const area = zones[seat];
+  const hand = room.cards.filter(card => !card.lock && zone(card.x, card.y) === seat)
+    .sort((first, second) => first.z - second.z);
+  if (!hand.length) return;
+  const horizontalRoom = area.w - cardWidth - 16;
+  const oneRowCapacity = 1 + Math.floor(horizontalRoom / 22);
+  const split = hand.length > oneRowCapacity ? Math.ceil(hand.length / 2) : hand.length;
+  const rows = [hand.slice(0, split), hand.slice(split)];
+  const top = area.y + 21 + cardHeight / 2;
+  const bottom = Math.min(playHeight - cardHeight / 2 - 4,
+    area.y + Math.max(area.h - cardHeight / 2 - 8, 119));
+  for (const [index, row] of rows.entries()) {
+    const step = row.length > 1 ? Math.min(36, horizontalRoom / (row.length - 1)) : 0;
+    const left = area.x + (area.w - step * (row.length - 1)) / 2;
+    row.forEach((card, column) => {
+      card.x = left + column * step;
+      card.y = index === 0 && rows[1].length === 0 ? (top + bottom) / 2 : index === 0 ? top : bottom;
+      card.a = 0;
+    });
+  }
+}
+
+function releaseCard(room, card) {
+  const origin = card.grabSeat;
+  const destination = zone(card.x, card.y);
+  card.lock = null;
+  delete card.grabSeat;
+  arrangeHand(room, destination);
+  if (origin !== undefined && origin !== destination) arrangeHand(room, origin);
+}
+
 function visible(c,u){const seat=zone(c.x,c.y);return seat>=0?seat===u.seat:c.face}
 const pieceLease = 5000;
 const pieceSizes = {rulebook: [96, 64], 'turn-dial': [turnDialSize, turnDialSize]};
 function view(r,u){return {id:r.id,name:r.name,me:u.id,seat:u.seat,round:r.round,rulebook:pieceView(r.rulebook),turnDial:pieceView(r.turnDial),resourceCount:resources.faces.length,players:[...r.players.values()].map(p=>({id:p.id,name:p.name,seat:p.seat,color:p.color,cursor:p.cursor})),cards:r.cards.map(c=>({...c,front:visible(c,u),image:visible(c,u)&&!!resources.faces[c.id],lock:c.until>Date.now()?c.lock:null})),back:!!resources.back,version:resources.version||0}}
 function broadcast(r){for(const u of r.players.values())for(const s of u.streams)s.write('data: '+JSON.stringify(view(r,u))+'\n\n')}
-function leave(u){if(!u.room)return;const r=rooms.get(u.room);r?.players.delete(u.id);if(r){for(const c of r.cards)if(c.lock===u.id)c.lock=null;for(const piece of [r.rulebook,r.turnDial])if(piece.holder===u.id)releasePiece(piece);broadcast(r)}u.room=null;u.seat=null;u.admin=false}
+function leave(u){if(!u.room)return;const r=rooms.get(u.room);r?.players.delete(u.id);if(r){for(const c of r.cards)if(c.lock===u.id)releaseCard(r,c);for(const piece of [r.rulebook,r.turnDial])if(piece.holder===u.id)releasePiece(piece);broadcast(r)}u.room=null;u.seat=null;u.admin=false}
 function makePiece(offset, extra = {}) {
   return { x: playWidth / 2 + offset, y: playHeight / 2, open: false, holder: null, expires: 0, ...extra };
 }
@@ -101,7 +135,7 @@ if((path==='/api/rulebook'||path==='/api/turn-dial')&&req.method==='POST'){
 if(path==='/api/cursor'){u.cursor={x:Math.max(0,Math.min(playWidth,Number(b.x)||0)),y:Math.max(0,Math.min(playHeight,Number(b.y)||0))}}
 else if(path==='/api/admin'){if(b.code!=='user257')fail('명령을 확인해주세요.',403);u.admin=true;return json({ok:true})}
 else if(path==='/api/upload'){if(!u.admin)fail('개발자 인증이 필요합니다.',403);if(!imageOK(b.image))fail('PNG, JPG, WebP 이미지를 선택해주세요.');if(b.back)resources.back=b.image;else{if(resources.faces.length>=120)fail('120장 모두 등록되었습니다.');resources.faces.push(b.image)}resources.version=(resources.version||0)+1;await writeFile(root+'data/resources.json',JSON.stringify(resources));for(const room of rooms.values())broadcast(room);return json({count:resources.faces.length})}
-else {const c=r.cards.find(c=>c.id===b.id);if(!c)fail('카드를 찾을 수 없습니다.');if(c.lock&&c.lock!==u.id&&c.until>Date.now())fail('다른 사람이 옮기고 있는 카드입니다.',409);if(path==='/api/grab'){c.lock=u.id;c.until=Date.now()+5000;c.z=++r.z}else if(path==='/api/move'){if(c.lock!==u.id)fail('카드를 먼저 잡아주세요.',409);const prev=zone(c.x,c.y);c.x=Math.max(cardWidth/2,Math.min(playWidth-cardWidth/2,Number(b.x)||0));c.y=Math.max(cardHeight/2,Math.min(playHeight-cardHeight/2,Number(b.y)||0));if(prev!==zone(c.x,c.y))c.face=false;if(Number.isFinite(b.a))c.a=((b.a%360)+360)%360;c.until=Date.now()+5000;if(b.release)c.lock=null}else if(path==='/api/flip'){if(zone(c.x,c.y)<0)c.face=!c.face}else fail('알 수 없는 요청입니다.',404)}broadcast(r);return json({ok:true})}
+else {const c=r.cards.find(c=>c.id===b.id);if(!c)fail('카드를 찾을 수 없습니다.');if(c.lock&&c.lock!==u.id&&c.until>Date.now())fail('다른 사람이 옮기고 있는 카드입니다.',409);if(path==='/api/grab'){if(!c.lock||c.until<=Date.now())c.grabSeat=zone(c.x,c.y);c.lock=u.id;c.until=Date.now()+5000;c.z=++r.z}else if(path==='/api/move'){if(c.lock!==u.id)fail('카드를 먼저 잡아주세요.',409);const prev=zone(c.x,c.y);c.x=Math.max(cardWidth/2,Math.min(playWidth-cardWidth/2,Number(b.x)||0));c.y=Math.max(cardHeight/2,Math.min(playHeight-cardHeight/2,Number(b.y)||0));if(prev!==zone(c.x,c.y))c.face=false;if(Number.isFinite(b.a))c.a=((b.a%360)+360)%360;c.until=Date.now()+5000;if(b.release)releaseCard(r,c)}else if(path==='/api/flip'){if(zone(c.x,c.y)<0)c.face=!c.face}else fail('알 수 없는 요청입니다.',404)}broadcast(r);return json({ok:true})}
 if((path==='/rulebook.png'||path==='/turn-dial.png')&&req.method==='GET'){
   const image=await readFile(root+'public'+path);
   res.writeHead(200,{'Content-Type':'image/png'});
@@ -112,12 +146,21 @@ const file=path==='/'?'index.html':path.slice(1);if(!['index.html','app.js','sty
 setInterval(()=>{for(const u of users.values()){for(const s of u.streams)s.write(': ping\n\n');if(Date.now()-u.last>20000)leave(u)}for(const [id,r]of rooms)if(!r.players.size)rooms.delete(id)},5000).unref();
 setInterval(()=>{
   for(const r of rooms.values()) {
-    for(const piece of [r.rulebook,r.turnDial]) {
-      if(piece.expires && piece.expires <= Date.now()) {
-        releasePiece(piece);
-        broadcast(r);
+    const now = Date.now();
+    let changed = false;
+    for(const card of r.cards) {
+      if(card.lock && card.until <= now) {
+        releaseCard(r, card);
+        changed = true;
       }
     }
+    for(const piece of [r.rulebook,r.turnDial]) {
+      if(piece.expires && piece.expires <= now) {
+        releasePiece(piece);
+        changed = true;
+      }
+    }
+    if(changed)broadcast(r);
   }
 },1000).unref();
 if(process.argv[1]===fileURLToPath(import.meta.url))http.createServer(handler).listen(Number(process.env.PORT)||3000,'0.0.0.0');

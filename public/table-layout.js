@@ -32,3 +32,8 @@ export const zones = originalZones.map(original => {
     h,
   };
 });
+
+export function seatAt(x, y) {
+  return zones.findIndex(zone =>
+    x >= zone.x && x <= zone.x + zone.w && y >= zone.y && y <= zone.y + zone.h);
+}
