@@ -136,3 +136,105 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
   box-shadow: 0 12px 28px #10061fbb;
   outline: 2px solid var(--accent);
 }
+
+.game { position: relative; }
+.reaction-picker {
+  position: absolute;
+  right: 18px;
+  bottom: 66px;
+  z-index: 30;
+  display: flex;
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid #9873ae;
+  border-radius: 12px;
+  background: #221332ed;
+  box-shadow: 0 6px 18px #10091b99;
+}
+.reaction-picker button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: #45305a;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+}
+.reaction-picker button:hover,
+.reaction-picker button:focus-visible { background: #644882; }
+.reaction-stage {
+  position: absolute;
+  inset: 16% 0 54px;
+  z-index: 29;
+  overflow: hidden;
+  pointer-events: none;
+}
+.table-reaction {
+  position: absolute;
+  left: calc(50% + var(--lane));
+  top: 50%;
+  display: grid;
+  justify-items: center;
+  translate: -50% -50%;
+  animation: reaction-life 1.5s both;
+}
+.reaction-symbol {
+  font-size: clamp(54px, 12vw, 112px);
+  line-height: 1;
+  filter: drop-shadow(0 4px 10px #160a25b3);
+  animation: reaction-pop .52s ease-out both;
+}
+.reaction-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 12px;
+  padding: 3px 9px;
+  background: #261535ed;
+  color: #fff;
+  font-size: 12px;
+}
+.reaction-tomato .reaction-symbol { animation: reaction-throw .92s cubic-bezier(.19,.65,.3,1) both; }
+.reaction-particle {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--particle-color);
+  pointer-events: none;
+  animation: reaction-burst .72s .12s ease-out both;
+}
+.reaction-tomato .reaction-particle { animation-delay: .47s; }
+@keyframes reaction-life {
+  0%, 75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes reaction-pop {
+  0% { transform: scale(.2) rotate(-12deg); opacity: 0; }
+  65% { transform: scale(1.24) rotate(5deg); }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes reaction-throw {
+  0% { transform: translate(var(--throw-x), var(--throw-y)) rotate(70deg) scale(.26); }
+  48% { transform: translateY(-34px) rotate(-16deg) scale(.85); }
+  65% { transform: scale(1.28,.7); }
+  100% { transform: none; }
+}
+@keyframes reaction-burst {
+  0% { transform: rotate(var(--direction)) translateX(6px) scale(.3); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: rotate(var(--direction)) translateX(96px) scale(.2); opacity: 0; }
+}
+@media (max-width: 500px) {
+  .reaction-picker { right: 8px; bottom: 62px; }
+  .reaction-picker button { width: 36px; height: 36px; font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-reaction .reaction-symbol { animation: none; }
+  .reaction-particle { display: none; }
+}

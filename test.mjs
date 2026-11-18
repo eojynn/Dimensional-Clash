@@ -169,3 +169,21 @@ test('cards and cursors can reach the expanded table bounds', async () => {
   assert(playWidth > 1080 && playHeight > 730);
   await request('leave', token, {});
 });
+
+test('valid reactions are shared with the table and limited per sender', async () => {
+  const first = (await request('login', null, {name: '이모지 1'})).body.token;
+  const second = (await request('login', null, {name: '이모지 2'})).body.token;
+  const {id} = (await request('create', first, {name: '이모지 테스트'})).body;
+  await request('join', second, {id});
+  assert.equal((await request('reaction', first, {kind: 'constructor'})).status, 400);
+  assert.equal((await request('reaction', first, {kind: 'tomato'})).status, 200);
+  assert.equal((await request('reaction', first, {kind: 'thumbsDown'})).status, 429);
+  assert.equal((await request('reaction', second, {kind: 'fireworks'})).status, 200);
+  const state = async token => (await request('events', token)).body.reactions;
+  const shared = await state(second);
+  assert.deepEqual(shared, await state(first));
+  assert.deepEqual(shared.map(({id, kind, name}) => [id, kind, name]),
+    [[1, 'tomato', '이모지 1'], [2, 'fireworks', '이모지 2']]);
+  await request('leave', second, {});
+  await request('leave', first, {});
+});
