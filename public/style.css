@@ -10,3 +10,53 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
 @media(max-width:850px){.intro h1{font-size:53px}.hero-art{transform:none;height:260px}.intro{padding:20px 0;min-height:280px}.lobby-grid{grid-template-columns:1fr}.login{grid-template-columns:1fr;max-width:520px;padding:45px 24px;min-height:100dvh}.login-art{display:none}.login .panel{width:100%}.game-header{padding:12px}.game-footer{padding:0 12px}.shell{padding:23px}.title-kicker{font-size:13px}.intro p{font-size:12px}}
 @media(max-width:580px){.shell{padding:20px}.nav .brand{font-size:19px}.pill{padding:7px 10px;font-size:10px}.intro{grid-template-columns:1fr;padding:36px 0 30px;min-height:0}.intro h1{font-size:58px;margin:20px 0 18px}.hero-art{display:none}.title-kicker{font-size:13px;margin-bottom:12px}.panel{padding:21px}.footer{flex-direction:column;gap:8px;margin-top:24px}.intro p{font-size:13px}.eyebrow{letter-spacing:2px}.login h1{font-size:45px}.login .panel{padding:28px}.game-header .brand{display:none}.game-footer .hints{gap:8px}.game-footer .hints span:nth-child(3){display:none}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.game-main { position: relative; }
+.rulebook-cover {
+  position: absolute;
+  z-index: 50000;
+  width: 96px;
+  height: 64px;
+  padding: 0;
+  translate: -50% -50%;
+  border: 1px solid #d4c3a3;
+  border-radius: 3px 8px 6px 3px;
+  background: linear-gradient(90deg, #e0d3ba 0 48%, #b7aa93 50%, #fff5df 52%);
+  color: #352648;
+  box-shadow: 1px 4px 0 #c9b99e, 0 7px 12px #10091b88;
+  touch-action: none;
+  cursor: grab;
+}
+.rulebook-cover:hover { transform: none; }
+.rulebook-cover:active { cursor: grabbing; }
+.rulebook-cover.is-open { opacity: .45; }
+.rulebook-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1000px;
+  visibility: hidden;
+  transition: visibility 0s linear .32s;
+}
+.rulebook-preview img {
+  display: block;
+  max-width: 96%;
+  max-height: 94%;
+  min-height: 0;
+  min-width: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 24px #0d051cbb);
+  transform: rotateX(-75deg) scale(.15);
+  opacity: 0;
+  transition: transform .32s ease, opacity .24s ease;
+}
+.rulebook-preview.is-open { visibility: visible; transition-delay: 0s; }
+.rulebook-preview.is-open img { transform: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .rulebook-preview, .rulebook-preview img { transition: none; }
+}

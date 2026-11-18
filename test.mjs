@@ -43,3 +43,28 @@ test('private zones fit inside the board without overlapping', () => {
     }
   }
 });
+
+test('players share a folded rulebook, its movement, and its open state', async () => {
+  const first = (await request('login', null, {name: '룰북 1'})).body.token;
+  const second = (await request('login', null, {name: '룰북 2'})).body.token;
+  const { id } = (await request('create', first, {name: '룰북 테스트'})).body;
+  await request('join', second, {id});
+  const read = async token => (await request('events', token)).body.rulebook;
+  const action = (token, command, position) => request('rulebook', token, {action: command, ...position});
+  assert.equal((await read(first)).open, false);
+  assert.deepEqual(await read(first), await read(second));
+  assert.equal((await action(first, 'open')).status, 409);
+  assert.equal((await action(first, 'grab')).status, 200);
+  assert.equal((await action(second, 'grab')).status, 409);
+  assert.equal((await action(first, 'move', {x: 430, y: 330})).status, 200);
+  assert.equal((await read(second)).x, 430);
+  assert.equal((await action(first, 'open')).status, 200);
+  assert.equal((await read(second)).open, true);
+  assert.equal((await action(first, 'release')).status, 200);
+  assert.deepEqual(await read(second), {x: 430, y: 330, open: false, holder: null});
+  await action(second, 'grab');
+  await action(second, 'open');
+  await request('leave', second, {});
+  assert.deepEqual(await read(first), {x: 430, y: 330, open: false, holder: null});
+  await request('leave', first, {});
+});
