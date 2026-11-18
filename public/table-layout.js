@@ -1,5 +1,5 @@
-export const boardWidth = 1100;
-export const boardHeight = 750;
+export const boardWidth = 1350;
+export const boardHeight = 880;
 export const boardBorder = 10;
 export const playWidth = boardWidth - 2 * boardBorder;
 export const playHeight = boardHeight - 2 * boardBorder;
@@ -8,19 +8,19 @@ export const cardHeight = 150;
 export const turnDialSize = 148;
 export const maxTurns = 10;
 
-const originalZones = [
+const seatPositions = [
   { x: 260, y: 30, w: 260, h: 150 },
-  { x: 580, y: 30, w: 260, h: 150 },
-  { x: 920, y: 240, w: 150, h: 270 },
-  { x: 580, y: 570, w: 260, h: 150 },
-  { x: 260, y: 570, w: 260, h: 150 },
-  { x: 30, y: 240, w: 150, h: 270 },
+  { x: boardWidth - 520, y: 30, w: 260, h: 150 },
+  { x: boardWidth - 180, y: (boardHeight - 270) / 2, w: 150, h: 270 },
+  { x: boardWidth - 520, y: boardHeight - 180, w: 260, h: 150 },
+  { x: 260, y: boardHeight - 180, w: 260, h: 150 },
+  { x: 30, y: (boardHeight - 270) / 2, w: 150, h: 270 },
 ];
 
 const zoneScale = Math.sqrt(1.5);
 const edgeInset = 10;
 
-export const zones = originalZones.map(original => {
+export const zones = seatPositions.map(original => {
   const w = Math.round(original.w * zoneScale);
   const h = Math.round(original.h * zoneScale);
   const x = Math.round(original.x - (w - original.w) / 2);

@@ -155,3 +155,17 @@ test('private hands overlap in two rows and close gaps when a card is removed', 
   await request('leave', second, {});
   await request('leave', first, {});
 });
+
+test('cards and cursors can reach the expanded table bounds', async () => {
+  const token = (await request('login', null, {name: '넓은 테이블'})).body.token;
+  await request('create', token, {name: '범위 테스트'});
+  const id = 0;
+  await request('grab', token, {id});
+  await request('move', token, {id, x: 2000, y: 630, release: true});
+  await request('cursor', token, {x: 2000, y: 2000});
+  const state = (await request('events', token)).body;
+  assert.equal(state.cards.find(card => card.id === id).x, playWidth - 54);
+  assert.deepEqual(state.players[0].cursor, {x: playWidth, y: playHeight});
+  assert(playWidth > 1080 && playHeight > 730);
+  await request('leave', token, {});
+});

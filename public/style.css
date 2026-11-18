@@ -11,7 +11,15 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
 @media(max-width:580px){.shell{padding:20px}.nav .brand{font-size:19px}.pill{padding:7px 10px;font-size:10px}.intro{grid-template-columns:1fr;padding:36px 0 30px;min-height:0}.intro h1{font-size:58px;margin:20px 0 18px}.hero-art{display:none}.title-kicker{font-size:13px;margin-bottom:12px}.panel{padding:21px}.footer{flex-direction:column;gap:8px;margin-top:24px}.intro p{font-size:13px}.eyebrow{letter-spacing:2px}.login h1{font-size:45px}.login .panel{padding:28px}.game-header .brand{display:none}.game-footer .hints{gap:8px}.game-footer .hints span:nth-child(3){display:none}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
-.game-main { position: relative; }
+.game-main {
+  position: relative;
+  align-items: safe center;
+  justify-content: safe center;
+}
+.board-wrap { overflow: clip; }
+@media (max-width: 850px) {
+  .zoom-hint { display: none; }
+}
 .rulebook-cover {
   position: absolute;
   z-index: 50000;
@@ -31,7 +39,7 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
 .rulebook-cover:active { cursor: grabbing; }
 .rulebook-cover.is-open { opacity: .45; }
 .rulebook-preview {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 20;
   display: grid;

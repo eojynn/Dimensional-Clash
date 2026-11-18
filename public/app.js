@@ -1,6 +1,7 @@
 import { boardWidth, boardHeight, boardBorder, cardWidth, cardHeight, playWidth, playHeight, zones, seatAt } from './table-layout.js';
 import { mountRulebook, mountTurnDial } from './rulebook.js';
 let rulebook, turnDial, handPointer, handPreview;
+let boardZoom = 1;
 const $=s=>document.querySelector(s),app=$('#app');
 let token=sessionStorage.getItem('table-token'),name=sessionStorage.getItem('table-name'),state=null,events=null,poller=null,scale=1,drag=null,mouseTime=0,movePending=null,moving=false,dev=false;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -10,7 +11,7 @@ const brand='<div class="brand"><span class="logo">✦</span>차원대충돌!</d
 function login(){rulebook?.dispose();turnDial?.dispose();clearInterval(poller);app.innerHTML=`<main class="login"><div class="login-art" aria-hidden="true"><img src="/cosmos.svg" alt=""></div><section class="panel">${brand}<div class="eyebrow" style="margin-top:35px">DIMENSION COLLISION · ONLINE</div><h1><span class="title-kicker">우리들의 우주가 만나는 순간</span>차원대충돌!</h1><p>차원을 넘어 모인 120장의 카드.<br>함께 우주를 뒤흔들 당신의 이름은?</p><form id="login"><label for="nickname">닉네임</label><input id="nickname" maxlength="16" placeholder="어떤 이름으로 만날까요?" autocomplete="nickname" required><button>차원에 입장하기 ↗</button></form><p style="margin-top:24px">최대 6명 · 실시간 플레이 · 자유로운 테이블</p></section></main>`;$('#login').onsubmit=async e=>{e.preventDefault();try{const j=await api('login',{name:$('#nickname').value});token=j.token;name=j.name;sessionStorage.setItem('table-token',token);sessionStorage.setItem('table-name',name);lobby()}catch(e){toast(e.message)}}}
 function lobby(){clearHandPreview();rulebook?.dispose();turnDial?.dispose();events?.close();events=null;state=null;drag=null;dev=false;$('#resources').hidden=true;clearInterval(poller);app.innerHTML=`<main class="shell"><nav class="nav">${brand}<div class="pill"><i class="dot"></i>${esc(name)} 님, 반가워요</div></nav><section class="intro"><div><div class="eyebrow">120 CARDS. ONE COSMIC COLLISION.</div><h1><span class="title-kicker">서로 다른 세계, 하나의 테이블</span><em>차원대충돌!</em></h1><p>차원을 넘나드는 카드, 예측할 수 없는 한 판.<br>친구들과 테이블에 모여 새로운 충돌을 시작하세요.</p></div><div class="hero-art" aria-hidden="true"><img src="/cosmos.svg" alt=""><div class="orbit-tag">✦ THE UNIVERSE IS YOUR PLAYGROUND ✦</div></div></section><div class="lobby-grid"><section class="panel"><div class="section-title"><h2>열린 테이블 <span id="room-count" class="muted"></span></h2><button id="refresh" class="secondary small-button">↻ 새로고침</button></div><div id="rooms"><div class="empty">테이블을 찾고 있어요…</div></div></section><aside class="panel"><div class="eyebrow">OPEN A NEW DIMENSION</div><h2 style="margin-top:12px">새 테이블 만들기</h2><p>이름을 정하고 친구들을 초대하세요.<br>입장하는 순간 바로 플레이할 수 있어요.</p><form id="create" class="create-form"><label for="room-name">테이블 이름</label><input id="room-name" maxlength="30" placeholder="예: 3조 보드게임 테스트" required><button>＋ 테이블 만들기</button></form><p style="margin-top:20px">♧ 테이블당 최대 6명까지 참여할 수 있어요.</p></aside></div><footer class="footer"><span>차원대충돌! · 우리만의 우주에서 만나요</span><span>정해진 시작 없이, 자유롭게 플레이하세요.</span></footer></main>`;$('#refresh').onclick=refresh;$('#create').onsubmit=async e=>{e.preventDefault();try{await api('create',{name:$('#room-name').value});game()}catch(e){toast(e.message)}};refresh();poller=setInterval(refresh,4000)}
 async function refresh(){try{const rooms=await api('rooms');if(!$('#rooms'))return;$('#room-count').textContent='· '+rooms.length;$('#rooms').innerHTML=rooms.length?rooms.map(r=>`<div class="room"><span class="room-icon">▱</span><div class="room-info"><strong>${esc(r.name)}</strong><span>${r.count} / 6명 · ${r.count>=6?'가득 찬 테이블':'함께할 자리가 있어요'}</span></div><button class="secondary small-button" data-join="${esc(r.id)}" ${r.count>=6?'disabled':''}>참여하기 ↗</button></div>`).join(''):'<div class="empty"><div class="empty-icon">▱</div><strong>첫 테이블을 열어볼까요?</strong><p>아직 열린 테이블이 없어요.<br>새 테이블을 만들고 친구들과 만나보세요.</p></div>';document.querySelectorAll('[data-join]').forEach(b=>b.onclick=async()=>{try{await api('join',{id:b.dataset.join});game()}catch(e){toast(e.message)}})}catch(e){toast(e.message)}}
-function game(){rulebook?.dispose();turnDial?.dispose();clearInterval(poller);app.innerHTML=`<main class="game"><header class="game-header">${brand}<div id="players" class="players"></div><button id="reset-table" class="secondary small-button" disabled>카드 섞기</button><button id="leave" class="secondary">나가기 ↗</button></header><div class="game-main"><div class="board-wrap"><div class="board" id="board"><div class="center-mark">차원대충돌!<br><small>DIMENSION COLLISION</small></div><div id="zones"></div><div id="cards"></div><div id="cursors"></div></div></div></div><footer class="game-footer"><span id="connection"><i class="dot"></i> 연결 중…</span><div class="hints"><span><b class="key">드래그</b>카드 이동</span><span><b class="key">휠</b>잡은 카드 회전</span><span><b class="key">우클릭 / 더블클릭</b>뒤집기</span><span><b class="key">길게 누르기</b>룰북 · 돌림판</span><span><b class="key">Ctrl D</b>콘솔</span></div></footer></main>`;$('#leave').onclick=async()=>{try{await api('leave',{});lobby()}catch(e){toast(e.message)}};const resetButton=$('#reset-table');resetButton.title='카드 섞기 및 테이블 초기화';resetButton.onclick=async()=>{
+function game(){rulebook?.dispose();turnDial?.dispose();boardZoom=1;clearInterval(poller);app.innerHTML=`<main class="game"><header class="game-header">${brand}<div id="players" class="players"></div><button id="reset-table" class="secondary small-button" disabled>카드 섞기</button><button id="leave" class="secondary">나가기 ↗</button></header><div class="game-main"><div class="board-wrap"><div class="board" id="board"><div class="center-mark">차원대충돌!<br><small>DIMENSION COLLISION</small></div><div id="zones"></div><div id="cards"></div><div id="cursors"></div></div></div></div><footer class="game-footer"><span id="connection"><i class="dot"></i> 연결 중…</span><div class="hints"><span><b class="key">드래그</b>카드 이동</span><span><b class="key">휠</b>잡은 카드 회전</span><span class="zoom-hint"><b class="key">빈 곳 + 휠</b>테이블 확대·축소</span><span><b class="key">우클릭 / 더블클릭</b>뒤집기</span><span><b class="key">길게 누르기</b>룰북 · 돌림판</span><span><b class="key">Ctrl D</b>콘솔</span></div></footer></main>`;$('#leave').onclick=async()=>{try{await api('leave',{});lobby()}catch(e){toast(e.message)}};const resetButton=$('#reset-table');resetButton.title='카드 섞기 및 테이블 초기화';resetButton.onclick=async()=>{
   resetButton.disabled=true;
   try{await api('reset',{});toast('테이블을 초기화했어요.')}
   catch(error){toast(error.message)}
@@ -36,14 +37,18 @@ board.onpointerup=board.onpointercancel=board.onlostpointercapture=release;const
   if(!card)return;
   e.preventDefault();
   api('flip',{id:+card.dataset.id,round:state.round}).catch(error=>toast(error.message));
-};board.ondblclick=board.oncontextmenu=flipCard;board.addEventListener('wheel',e=>{if(!drag)return;e.preventDefault();drag.a+=e.deltaY>0?15:-15;localDrag();queueMove(false)},{passive:false});poller=setInterval(()=>api('cursor',state?.players.find(p=>p.id===state.me)?.cursor||{x:0,y:0}).catch(()=>{}),5000)}
+};board.ondblclick=board.oncontextmenu=flipCard;board.addEventListener('wheel',zoomBoard,{passive:false});board.addEventListener('wheel',e=>{if(!drag)return;e.preventDefault();drag.a+=e.deltaY>0?15:-15;localDrag();queueMove(false)},{passive:false});poller=setInterval(()=>api('cursor',state?.players.find(p=>p.id===state.me)?.cursor||{x:0,y:0}).catch(()=>{}),5000)}
 function point(e){const r=$('#board').getBoundingClientRect();return{x:(e.clientX-r.left)/scale-boardBorder,y:(e.clientY-r.top)/scale-boardBorder}}
 function resize() {
   const main = $('.game-main');
   if (!main) return;
   const board = $('#board');
   const wrap = $('.board-wrap');
-  scale = Math.max(.25, Math.min((main.clientWidth - 30) / boardWidth, (main.clientHeight - 25) / boardHeight));
+  const padding = getComputedStyle(main);
+  const width = main.offsetWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+  const height = main.offsetHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom);
+  const fit = Math.max(.2, Math.min(width / boardWidth, height / boardHeight));
+  scale = fit * boardZoom;
   board.style.width = boardWidth + 'px';
   board.style.height = boardHeight + 'px';
   board.style.setProperty('--board-border', boardBorder + 'px');
@@ -52,6 +57,22 @@ function resize() {
   wrap.style.width = boardWidth * scale + 'px';
   wrap.style.height = boardHeight * scale + 'px';
   board.style.transform = `scale(${scale})`;
+}
+function zoomBoard(event) {
+  if (event.defaultPrevented || !event.deltaY || drag || rulebook.active || turnDial.active ||
+      event.target.closest('.card, .rulebook-cover, .turn-dial')) return;
+  event.preventDefault();
+  const sensitivity = event.deltaMode === 1 ? 0.044 : event.deltaMode === 2 ? 0.5 : 0.0015;
+  const next = Math.max(.7, Math.min(2.5, boardZoom * Math.exp(-event.deltaY * sensitivity)));
+  if (next === boardZoom) return;
+  const anchor = point(event);
+  const board = $('#board');
+  const main = $('.game-main');
+  boardZoom = next;
+  resize();
+  const bounds = board.getBoundingClientRect();
+  main.scrollLeft += bounds.left + (anchor.x + boardBorder) * scale - event.clientX;
+  main.scrollTop += bounds.top + (anchor.y + boardBorder) * scale - event.clientY;
 }
 window.addEventListener('resize',resize);
 function localDrag(){if(drag.released)return;const el=document.querySelector(`[data-id="${drag.id}"]`);if(el){el.style.left=drag.x+'px';el.style.top=drag.y+'px';el.style.transform=`rotate(${drag.a}deg)`;el.style.zIndex=99999;el.classList.add('held')}}
