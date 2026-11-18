@@ -178,10 +178,14 @@ test('valid reactions are shared with the table and limited per sender', async (
   assert.equal((await request('reaction', first, {kind: 'constructor'})).status, 400);
   assert.equal((await request('reaction', first, {kind: 'tomato'})).status, 200);
   assert.equal((await request('reaction', first, {kind: 'thumbsDown'})).status, 429);
-  assert.equal((await request('reaction', second, {kind: 'fireworks'})).status, 200);
+  assert.equal((await request('reaction', second, {kind: 'fireworks', x: 1.2, y: .3})).status, 400);
+  assert.equal((await request('reaction', second, {kind: 'fireworks', x: .72, y: .38})).status, 200);
   const state = async token => (await request('events', token)).body.reactions;
   const shared = await state(second);
   assert.deepEqual(shared, await state(first));
+  assert.equal(shared[0].x, undefined);
+  assert.equal(shared[1].x, .72);
+  assert.equal(shared[1].y, .38);
   assert.deepEqual(shared.map(({id, kind, name}) => [id, kind, name]),
     [[1, 'tomato', '이모지 1'], [2, 'fireworks', '이모지 2']]);
   await request('leave', second, {});

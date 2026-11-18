@@ -6,7 +6,7 @@ export const reactions = {
   thumbsDown: { icon: '👎', label: '배드' },
 };
 
-export function mountReactions(game, api, toast) {
+export function mountReactions(game, board, api, toast) {
   const picker = document.createElement('div');
   picker.className = 'reaction-picker';
   picker.setAttribute('role', 'group');
@@ -22,26 +22,85 @@ export function mountReactions(game, api, toast) {
 
   let latest = 0;
   let nextSend = 0;
-  picker.onclick = async event => {
-    const button = event.target.closest('button[data-reaction]');
-    if (!button || Date.now() < nextSend) return;
+  let gesture;
+  let suppressClick = false;
+
+  async function send(kind, position) {
+    if (Date.now() < nextSend) return;
     nextSend = Date.now() + 650;
     try {
-      await api('reaction', { kind: button.dataset.reaction });
+      await api('reaction', { kind, ...position });
     } catch (error) {
       toast(error.message);
     }
+  }
+
+  picker.onclick = event => {
+    const button = event.target.closest('button[data-reaction]');
+    if (!button || (suppressClick && event.detail > 0)) return;
+    send(button.dataset.reaction);
   };
 
-  function show({ kind, name }) {
+  picker.onpointerdown = event => {
+    const button = event.target.closest('button[data-reaction]');
+    if (!button || gesture || event.button !== 0) return;
+    suppressClick = false;
+    gesture = {
+      pointerId: event.pointerId,
+      kind: button.dataset.reaction,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+    button.setPointerCapture(event.pointerId);
+  };
+
+  picker.onpointermove = event => {
+    if (gesture?.pointerId !== event.pointerId) return;
+    if (!gesture.ghost) {
+      if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) < 7) return;
+      suppressClick = true;
+      gesture.ghost = element('span', 'reaction-drag-ghost', {}, reactions[gesture.kind].icon);
+      stage.append(gesture.ghost);
+    }
+    event.preventDefault();
+    const field = stage.getBoundingClientRect();
+    gesture.ghost.style.left = event.clientX - field.left + 'px';
+    gesture.ghost.style.top = event.clientY - field.top + 'px';
+  };
+
+  picker.onpointerup = picker.onpointercancel = picker.onlostpointercapture = event => {
+    if (gesture?.pointerId !== event.pointerId) return;
+    const { kind, ghost } = gesture;
+    gesture = null;
+    if (!ghost) return;
+    ghost.remove();
+    if (event.type !== 'pointerup' ||
+        document.elementFromPoint(event.clientX, event.clientY)?.closest('.board') !== board) return;
+    const bounds = board.getBoundingClientRect();
+    send(kind, {
+      x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)),
+      y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)),
+    });
+  };
+
+  function show({ kind, name, x, y }) {
     if (!Object.hasOwn(reactions, kind)) return;
     const effect = element('div', 'table-reaction reaction-' + kind);
+    const field = stage.getBoundingClientRect();
+    let left = field.width / 2;
+    let top = field.height / 2;
+    if (x !== undefined && y !== undefined) {
+      const bounds = board.getBoundingClientRect();
+      left = bounds.left - field.left + x * bounds.width;
+      top = bounds.top - field.top + y * bounds.height;
+      effect.style.left = left + 'px';
+      effect.style.top = top + 'px';
+    }
     if (kind === 'tomato') {
       const tray = picker.getBoundingClientRect();
-      const field = stage.getBoundingClientRect();
       const origin = {
-        '--throw-x': (tray.left + tray.width / 2 - field.left - field.width / 2) + 'px',
-        '--throw-y': (tray.top + tray.height / 2 - field.top - field.height / 2) + 'px',
+        '--throw-x': (tray.left + tray.width / 2 - field.left - left) + 'px',
+        '--throw-y': (tray.top + tray.height / 2 - field.top - top) + 'px',
       };
       addTomato(effect, origin);
     } else if (kind === 'fireworks') {

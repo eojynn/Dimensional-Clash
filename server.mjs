@@ -123,11 +123,13 @@ if(path==='/api/create'||path==='/api/join'){let r;if(path==='/api/create'){r={i
 if(path==='/api/leave'){leave(u);return json({ok:true})}const r=rooms.get(u.room);if(!r)fail('방에 참여해주세요.');
 if(path==='/api/reaction'&&req.method==='POST'){
   if(typeof b.kind!=='string'||!Object.hasOwn(reactions,b.kind))fail('등록된 이모티콘을 선택해주세요.');
+  const hasPosition=b.x!==undefined||b.y!==undefined;
+  if(hasPosition&&![b.x,b.y].every(value=>Number.isFinite(value)&&value>=0&&value<=1))fail('테이블 안에 놓아주세요.');
   const now=Date.now();
   if(now<(u.nextReactionAt??0))fail('잠시 후 다시 사용해주세요.',429);
   u.nextReactionAt=now+600;
   r.reactions=r.reactions.filter(event=>event.expires>now);
-  r.reactions.push({id:++r.nextReaction,kind:b.kind,name:u.name,expires:now+1900});
+  r.reactions.push({id:++r.nextReaction,kind:b.kind,name:u.name,expires:now+1900,...(hasPosition?{x:b.x,y:b.y}:{})});
   broadcast(r);
   return json({ok:true});
 }

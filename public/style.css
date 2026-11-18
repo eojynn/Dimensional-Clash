@@ -318,3 +318,16 @@ body::before{content:'';position:fixed;inset:12px;border:1px solid #92f5c429;bor
   .tomato-drop { transform: rotate(var(--direction)) translateX(var(--distance)); }
   .firework-spark { transform: rotate(var(--direction)) translateX(var(--distance)); }
 }
+
+.reaction-picker button {
+  touch-action: none;
+  user-select: none;
+}
+.reaction-drag-ghost {
+  position: absolute;
+  z-index: 2;
+  translate: -50% -50%;
+  font-size: 36px;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 8px #10091baa);
+}
